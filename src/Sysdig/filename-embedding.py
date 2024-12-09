@@ -1,3 +1,6 @@
+    """文件名词向量学习模型无监督学习
+    """
+
 from gensim.models import FastText
 from gensim.models.doc2vec import TaggedDocument
 from argparse import ArgumentParser
@@ -17,6 +20,8 @@ if __name__ == "__main__":
     epoch = args.epoch
     dataset = args.d
     embedding_size = args.e
+
+    # 文件名语料生成
     input_file = dataset + '/filename.txt'
     pathname = []
     corpus = []
@@ -33,7 +38,7 @@ if __name__ == "__main__":
 
         corpus.append(splitline)
 
-
+    # FastText 词向量学习
     model = FastText(min_count = 2, vector_size=embedding_size, workers= 30, alpha=0.01,window=3,negative=3)
     model.build_vocab(corpus)
     model.train(corpus,epochs=epoch,total_examples=model.corpus_count)

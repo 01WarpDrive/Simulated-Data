@@ -28,6 +28,7 @@ get threshold from the log of train.py: 'anomaly threshold: xxx'
 ### Online detection
 ```
 $ cd real-time/
-$ python main.py --threshold xxx
+$ python main.py --t xxx
+$ python main.py --t 28.32657814025879
 ```
 

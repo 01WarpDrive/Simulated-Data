@@ -52,7 +52,8 @@ class ProvGraph(object):
             'f4c37a52e9572e89f86b0811b4fb326f','526f43c80ba193bc3dabc6374baad92a','b9ced8f1e981fe2b19ba4f0c74c8eaaa','eca0112ba004a46862c9d957b9dc2222','b8fa95f2d2d39924b045b41cf5991d3f','e0b19819ffbadb37ba779ebe29085e8b','cfcc3cb29e2e6cfa8ba1f48eeb40a69d','526f43c80ba193bc3dabc6374baad92a','894232a1faedaf12a553156f39aeb524','a897833c84ca38eb9d6c06553db9211f','dc17876a3a9ae7401065fc12c074089b','4dff1d0c21ffed9c41c460d43f855630','f1e2739b8c52073f9266a036aa93bd52','b35b4ffe25682ffd5899e5dffb39cb68','bc97cc66c3f4038cd0e9582f6a66ec69','07165d4a31e8d35df421c9d6c4ae450f','97db754defe078d12cd35d28de61c04a','c5d9be0fe1125565a14587328a25f06b','766c100383651fe8fb408dcaeabca2d0','ad7eb65e45d145446eafde6779d5695f'])
         self.nodes = defaultdict(dict)
         print(len(self.attack_process))
-        #
+
+
     def graph_add_node_mgr(self, row, key, event_type):
         self.lock.acquire()
         node_attr = {}
@@ -265,7 +266,17 @@ class ProvGraph(object):
         #         return n
 
         return -1
+
+
     def graph_taylor(self,g):
+        """在给定的图 g 上执行节点合并操作，以减少图中节点的数量，同时尽量保持图的结构和信息。
+
+        Args:
+            g (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         cnt = 0
         remove_nodes_list = set()
         for node in g.nodes:
@@ -329,7 +340,16 @@ class ProvGraph(object):
             g.remove_nodes_from(remove_nodes_list)
         return g
 
+
     def final_graph_taylor(self,g):
+        """疑似构建hopset
+
+        Args:
+            g (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         flag = True
         cnt = 0
         while flag:
@@ -414,6 +434,8 @@ class ProvGraph(object):
             # nx.drawing.nx_pydot.write_dot(g, str(cnt) + 'p.dot')
             # cnt += 1
         return g
+
+
     def caculate_anomaly_score(self,pnode,anomaly_cutoff):
         need_to_caculate = defaultdict(list)
         # nodes = self.G.nodes()
@@ -666,9 +688,15 @@ class ProvGraph(object):
             merged_graph_list.append(CacheGraph(G))
         
         return merged_graph_list    
-        
-            
+
+
     def update_cache(self,graph_list,topK):
+        """(Grubbs's test)来检测异常高HAS的hopset
+
+        Args:
+            graph_list (_type_): _description_
+            topK (_type_): _description_
+        """
         merged_graph_list = self.MergeGraph(self.graph_cache,graph_list)
         merged_graph_list = [g for g in merged_graph_list if g.GetGraphScore() > 0 and g.graph.number_of_nodes() > 10]
         score = [x.GetGraphScore() for x in merged_graph_list]

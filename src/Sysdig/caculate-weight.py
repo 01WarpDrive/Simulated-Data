@@ -1,10 +1,16 @@
+    """权重计算
+
+    Returns:
+        _type_: _description_
+    """
+
 import numpy as np
 from numpy import tile
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
-from scipy.sparse.construct import random
-from scipy.sparse.linalg.eigen.arpack import eigsh
+from scipy.sparse import random
+from scipy.sparse.linalg import eigsh
 import sys
 import torch
 import torch.nn as nn
@@ -31,7 +37,16 @@ from sklearn.cluster import *
 from sklearn.metrics.pairwise import *
 
 
-def extract_process_feature(file_path,w2v):
+def extract_process_feature(file_path, w2v):
+    """结点级特征向量
+
+    Args:
+        file_path (_type_): _description_
+        w2v (_type_):  FastText model
+
+    Returns:
+        _type_: _description_
+    """
     process_map = {}
     f = open(file_path,'r')
     print('start graph')
@@ -102,6 +117,17 @@ def extract_process_feature(file_path,w2v):
 #     return process_vec
 
 def extract_process_vec(file_path,tfidf, w2v, c2v):
+    """计算加权后的向量
+
+    Args:
+        file_path (_type_): _description_
+        tfidf (_type_): 一个字典，键是处理后的命令（或路径）字符串，值是该字符串的TF-IDF分数
+        w2v (_type_): 一个训练好的Word2Vec模型，用于将单词转换为词向量
+        c2v (_type_): 一个训练好的Char2Vec模型，用于将字符转换为字符向量
+
+    Returns:
+        _type_: _description_
+    """
     process_map = {}
     f = open(file_path,'r')
     print('start graph')
@@ -177,10 +203,12 @@ if __name__ == "__main__":
     c2v_dic = dataset + '/cmdline-embedding.model'
     c2v = FastText.load(c2v_dic)
 
-    file_vec, fileid2name, file_freq, process_num = extract_process_feature(inputfile,w2v)
+    # 嵌入向量生成
+    file_vec, fileid2name, file_freq, process_num = extract_process_feature(inputfile, w2v)
     threshold = 0.9
     cos = cosine_similarity(np.array(file_vec))
 
+    # 权重计算
     tfidf_dic = {}
     for i in range(cos.shape[0]):
         index = np.where(cos[i] > threshold)[0]
@@ -193,7 +221,6 @@ if __name__ == "__main__":
 
     json.dump(tfidf_dic, open(dataset + '/tfidf.json','w'))
     
-
     process_vec, process_map,ground_truth = extract_process_vec(inputfile,tfidf_dic,w2v,c2v)
     
     # stability = {}
@@ -254,7 +281,7 @@ if __name__ == "__main__":
         stability[process] = s
         print(s)
 
-
+    # 用于后续计算stability score AS
     f = open(dataset +'/stability-embedding.json','w')
     print(sorted(stability.items(),key = lambda d:d[1], reverse = True))
 

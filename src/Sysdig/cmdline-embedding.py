@@ -1,3 +1,6 @@
+    """命令行 FastText 词向量学习模型无监督学习
+    """
+
 from gensim.models import FastText
 from gensim.models.doc2vec import TaggedDocument
 from argparse import ArgumentParser

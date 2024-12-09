@@ -1,3 +1,9 @@
+"""在线检测
+
+Returns:
+    _type_: _description_
+"""
+
 from argparse import ArgumentParser
 import networkx as nx
 from streamz import Stream
@@ -15,6 +21,7 @@ from threading import Thread
 import sys
 sys.path.append('..')
 from config import *
+import os
 
 
 def get_keys(d, value):
@@ -44,12 +51,14 @@ def get_orgs(line):
 
 
 def log_parser(q,dataset,anomaly_cutoff):
+####### 内存缓存构建，终端识别，hopset构造，综合检测 ########
     proGraph = ProvGraph(dataset)
     start_time = time.time()
     point_start = start_time
     thread_list = []
     # cnt = 0
     while True:
+        # 构建来源图
         log_line = q.recv()
         # cnt += 1
         if log_line == "end":
@@ -69,9 +78,12 @@ def log_parser(q,dataset,anomaly_cutoff):
             elif org_log['evt.type'] in APTLOG_TYPE.NET_OP and org_log['proc.cmdline'] is not None and org_log['fd.name'] is not None:
                 proGraph.graph_add_node_mgr(org_log, APTLOG_KEY.NET, org_log['evt.type'])
         end_time = time.time()
+
+        # 超过时间窗口，更新内存缓存
         if end_time - start_time >= 10:
             proGraph.thread_lock.acquire()
             print("start_update")
+            # 更新，异常结点识别
             t = threading.Thread(target = proGraph.update,args=(anomaly_cutoff,))
             t.start()
             thread_list.append(t)
@@ -88,25 +100,22 @@ def log_parser(q,dataset,anomaly_cutoff):
 ####### you can rewrite this part ##########
 ####### 1. check if the anomaly grpah is highly ranked ########
 
-    # print(cnt)
+    # proGraph.attack_process 是ground-truth
     cnt = 0
     for i in proGraph.node_set:
         if i in proGraph.attack_process and proGraph.nodes[i]['score']!=0:
             cnt += 1
-            print(i,proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
-        elif i in proGraph.attack_process and proGraph.nodes[i]['score']==0:
-            print(i, proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
-
+        #     print(i,proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
+        # elif i in proGraph.attack_process and proGraph.nodes[i]['score']==0:
+        #     print(i, proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
     # for i in proGraph.attack_process:
     #     print('attack: ',i,proGraph.nodes[i]['score'])
-    print('rate: ', cnt/len(proGraph.attack_process))
+    print('graph-level rate: ', cnt/len(proGraph.attack_process))
 
 
     cnt = 0
     for i, g in enumerate(proGraph.graph_cache):
-
-        g.graph = proGraph.final_graph_taylor(g.graph)
-
+        g.graph = proGraph.final_graph_taylor(g.graph) # 疑似构造hopset
         for k in g.graph.nodes():
             # if (g.graph.in_degree(k) == 1 and g.graph.degree(k) == 1 ):
             #     removelist.append(k)
@@ -129,6 +138,7 @@ def log_parser(q,dataset,anomaly_cutoff):
                 i = proGraph.taylor_map[i]
             proGraph.taylor_map[origion] = i
 
+        # 攻击子图
         flag = False
         tmp_hit = set()
         for node in g.graph.nodes():
@@ -169,24 +179,30 @@ def log_parser(q,dataset,anomaly_cutoff):
 
         for k in result_graph.nodes():
             result_graph.nodes[k]['label'] = result_graph.nodes[k]['label'].replace(':','')
-            
+        
+        directory_path = '../' + dataset + '/dot'
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
         nx.drawing.nx_pydot.write_dot(result_graph, '../' + dataset + '/dot/' + str(cnt) + '.dot')
         cnt += 1
-    print("recall: ",len(proGraph.hit)/len(proGraph.attack_process))
-    print(set(proGraph.attack_process) - proGraph.hit)
-    x = set(proGraph.attack_process) - proGraph.hit
-    for i in x:
-        print(proGraph.GetNodeName(i))
-    print(len(proGraph.node_set),len(proGraph.filtered))
+    print("graph-level recall: ", len(proGraph.hit)/len(proGraph.attack_process))
+
+    # print("未召回: ", set(proGraph.attack_process) - proGraph.hit)
+    # x = set(proGraph.attack_process) - proGraph.hit
+    # for i in x:
+    #     print(proGraph.GetNodeName(i))
+
+    print(len(proGraph.node_set), len(proGraph.filtered))
     out_process = open('../' + dataset + '/detected-process.txt','w')
+
     for i in proGraph.filtered:
         if i in proGraph.attack_process:
             out_process.write(i + ',1,' + proGraph.GetNodeName(i) + '\n')
         else:
             out_process.write(i + ',0,' + proGraph.GetNodeName(i) + '\n')
     out_process.close()
-        
-    
+
+
 def proc_send(q,event_file):
     for line in open(event_file):
         q.send(line)
@@ -204,9 +220,10 @@ if __name__ == "__main__":
     anomaly_cutoff = args.t
     stream_file = "../" + dataset + "/anomaly.json"
 
-
     pipe = multiprocessing.Pipe()
+    # 发送异常日志
     t1 = multiprocessing.Process(target=proc_send, args=(pipe[0], stream_file,))
+    # 日志在线检测
     t2 = multiprocessing.Process(target=log_parser, args=(pipe[1], dataset, anomaly_cutoff,))
     start_time = time.time()
     
@@ -219,5 +236,5 @@ if __name__ == "__main__":
     
     
     end_time = time.time()
-    print(end_time-start_time)
+    print("总耗时: ", end_time-start_time)
 

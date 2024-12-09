@@ -26,7 +26,17 @@ def get_md5(s):
     :return:
     """
     return str(md5(s.encode('utf8')).hexdigest())
+
+
 def read_org_log_from_json(file_path):
+    """读取 Sysmon 日志文件，加载到 DataFrame 中，删除重复数据，填充缺失值
+
+    Args:
+        file_path (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # Sysmon_Log = pd.read_json(file_path, orient='columns', lines = True)
     Sysmon_Log = []
     for line in open(file_path):
@@ -43,6 +53,7 @@ def read_org_log_from_json(file_path):
     Sysmon_Log = Sysmon_Log.fillna("None")
     print('Completed: padding missing records as None')
     return Sysmon_Log
+
 
 def graph_add_node_realapt(g: nx.Graph, logs, key, md5_to_node:dict, node_to_type:dict):
     node_set = set()
@@ -144,6 +155,18 @@ def graph_add_node_realapt(g: nx.Graph, logs, key, md5_to_node:dict, node_to_typ
 
 
 def graph_add_node_benign(g: nx.Graph, logs, key, md5_to_node:dict, node_to_type:dict):
+    """benign日志来源图构建
+
+    Args:
+        g (nx.Graph): _description_
+        logs (_type_): _description_
+        key (_type_): _description_
+        md5_to_node (dict): _description_
+        node_to_type (dict): _description_
+
+    Returns:
+        _type_: _description_
+    """
     node_set = set()
     edge_set = set()
     anomaly_set = set()

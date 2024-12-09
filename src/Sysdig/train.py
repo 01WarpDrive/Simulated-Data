@@ -3,8 +3,8 @@ from numpy import tile
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
-from scipy.sparse.construct import random
-from scipy.sparse.linalg.eigen.arpack import eigsh
+from scipy.sparse import random
+from scipy.sparse.linalg import eigsh
 import sys
 import torch
 import torch.nn as nn
@@ -29,7 +29,19 @@ import seaborn as sns
 from tools import *
 from argparse import ArgumentParser
 
+
 def extract_process_feature(file_path,tfidf, w2v, c2v):
+    """_summary_
+
+    Args:
+        file_path (_type_): _description_
+        tfidf (_type_): _description_
+        w2v (_type_): _description_
+        c2v (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     process_map = {}
     f = open(file_path,'r')
     print('start graph')
@@ -101,6 +113,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     epochs = args.epoch
     dataset = args.d
+
     w2v_dic = dataset + '/filepath-embedding.model'
     w2v = FastText.load(w2v_dic)
     c2v_dic = dataset + '/cmdline-embedding.model'
