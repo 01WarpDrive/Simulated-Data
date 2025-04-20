@@ -20,7 +20,7 @@ if __name__ == "__main__":
     input_file = dataset + '/filename.txt'
     pathname = []
     corpus = []
-    f = open(input_file,'r')
+    f = open(input_file,'r', encoding="utf-8")
     while True:
         line = f.readline()
         if not line:

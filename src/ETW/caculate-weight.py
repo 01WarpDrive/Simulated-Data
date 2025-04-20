@@ -3,8 +3,8 @@ from numpy import tile
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
-from scipy.sparse.construct import random
-from scipy.sparse.linalg.eigen.arpack import eigsh
+from scipy.sparse import random
+from scipy.sparse.linalg import eigsh
 import sys
 import torch
 import torch.nn as nn
@@ -33,7 +33,7 @@ from sklearn.metrics.pairwise import *
 
 def extract_process_feature(file_path,w2v):
     process_map = {}
-    f = open(file_path,'r')
+    f = open(file_path,'r', encoding="utf-8")
     print('start graph')
     process_vec = defaultdict(list)
     id = 0
@@ -103,7 +103,7 @@ def extract_process_feature(file_path,w2v):
 
 def extract_process_vec(file_path,tfidf, w2v, c2v):
     process_map = {}
-    f = open(file_path,'r')
+    f = open(file_path,'r', encoding="utf-8")
     print('start graph')
     process_vec = defaultdict(list)
     id = 0
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
         tfidf_dic[fileid2name[i]] = math.log(process_num / len(process_set),2)
 
-    json.dump(tfidf_dic, open(dataset + '/tfidf.json','w'))
+    json.dump(tfidf_dic, open(dataset + '/tfidf.json','w', encoding="utf-8"))
     
 
     process_vec, process_map,ground_truth = extract_process_vec(inputfile,tfidf_dic,w2v,c2v)
@@ -257,7 +257,7 @@ if __name__ == "__main__":
         print(s)
 
 
-    f = open(dataset +'/stability-embedding.json','w')
+    f = open(dataset +'/stability-embedding.json','w', encoding="utf-8")
     print(sorted(stability.items(),key = lambda d:d[1], reverse = True))
 
     json.dump(stability,f)

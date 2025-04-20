@@ -43,11 +43,11 @@ if __name__ == "__main__":
 
     G = graph_init()
     if 'benign' in file_path:
-        G = benign_graph_add_node_mgr(G, file_op_logs, EVENT_KEY.FILE)
-        G = benign_graph_add_node_mgr(G, netsend_op_logs, EVENT_KEY.NET)
-        G = benign_graph_add_node_mgr(G, netrecv_op_logs, EVENT_KEY.NET)
-        G = benign_graph_add_node_mgr(G, image_op_logs, EVENT_KEY.FILE)
-        G = benign_graph_add_node_mgr(G, process_op_logs, EVENT_KEY.PROCESS)
+        G = benign_graph_add_node_mgr(G, file_op_logs, EVENT_KEY.FILE, dataset)
+        G = benign_graph_add_node_mgr(G, netsend_op_logs, EVENT_KEY.NET, dataset)
+        G = benign_graph_add_node_mgr(G, netrecv_op_logs, EVENT_KEY.NET, dataset)
+        G = benign_graph_add_node_mgr(G, image_op_logs, EVENT_KEY.FILE, dataset)
+        G = benign_graph_add_node_mgr(G, process_op_logs, EVENT_KEY.PROCESS, dataset)
     else:
         G = graph_add_node_mgr(G, file_op_logs, EVENT_KEY.FILE)
         G = graph_add_node_mgr(G, netsend_op_logs, EVENT_KEY.NET)
@@ -71,11 +71,10 @@ if __name__ == "__main__":
         event_file = dataset + '/process-event-benign.txt'
     else:
         event_file = dataset + '/process-event-anomaly.txt'
-    data = open(event_file,'w')
+    data = open(event_file, 'w', encoding="utf-8")
     cnt = 0
     hit = set()
 
-    
 
     for node in G:
         if G.nodes[node]['type'] == NODE_TYPE.PROCESS:
@@ -103,6 +102,7 @@ if __name__ == "__main__":
     # nx.drawing.nx_pydot.write_dot(G, 'anomaly.dot')
 
     data.close()
+    print(hit)
     # print(len(hit))
     # x = ground_truth - hit
     # print(x)

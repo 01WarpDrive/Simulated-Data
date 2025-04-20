@@ -121,14 +121,14 @@ def graph_add_node_mgr(g, logs, key):
     for i in attack_process:
         print(attack_process[i])
     return g
-def benign_graph_add_node_mgr(g, logs, key):
+def benign_graph_add_node_mgr(g, logs, key, dataset):
     node_set = set()
     node_attr = {}
     edge_set = set()
     attack_process = {}
     if key == EVENT_KEY.FILE:
         # add file type node
-        f = open('hw20/filename.txt', 'a')
+        f = open(f'{dataset}/filename.txt', 'a', encoding="utf-8")
         for index, row in logs.iterrows():
             Process = str(row['PID']) + str(row['PName'])
             s_node = get_md5(Process)
@@ -142,7 +142,7 @@ def benign_graph_add_node_mgr(g, logs, key):
             edge_set.add((s_node, t_node))
         f.close()
     elif key == EVENT_KEY.PROCESS:
-        o = open('hw20/cmdline.txt','w')
+        o = open(f'{dataset}/cmdline.txt','w', encoding="utf-8")
         # add process type node
         for index, row in logs.iterrows():
             Parentid = row['ParentID'].replace(',','') + str(row['PPName'])
@@ -160,7 +160,7 @@ def benign_graph_add_node_mgr(g, logs, key):
         o.close()
     elif key == EVENT_KEY.NET:
         # add net type node
-        f = open('hw20/filename.txt', 'a')
+        f = open(f'{dataset}/filename.txt', 'a', encoding="utf-8")
         for index, row in logs.iterrows():
             s_node = get_md5(str(row['PID'])+ str(row['PName']))
             node_attr[s_node] = {'label': row['PName'], 'type': NODE_TYPE.PROCESS, 'cmd': '', 'is_warn': False}
@@ -297,6 +297,7 @@ def sanitize_string(s):
                 # print(item)
                     newline.append('hash')
             except Exception as e:
-                print(s)
+                pass
+                # print(s)
     split_path = [item for item in filter(lambda x:x != '',newline)]
     return split_path

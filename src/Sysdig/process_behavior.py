@@ -1,6 +1,3 @@
-    """日志构建来源图
-    """
-
 import networkx as nx
 import json
 import pandas as pd
@@ -8,6 +5,8 @@ from config import *
 from tools import *
 from argparse import ArgumentParser
 import random
+
+import time
 
 
 def split_cmd_and_filename(file_path,dataset):
@@ -42,19 +41,17 @@ def split_cmd_and_filename(file_path,dataset):
     o2.close()
 
 if __name__ == "__main__":
-    # 解析
+    st = time.time()
+
     parser = ArgumentParser()
     parser.add_argument("--file",type = str, default='benign.json')
     parser.add_argument("--d",type = str, default = 'hw17')
     args = parser.parse_args()
     file_path = args.file
     dataset = args.d
-
-    # 加载日志
     G = nx.DiGraph()
     org_log = read_org_log_from_json(dataset + '/' + file_path)
 
-    # 筛选出文件、进程、网络类型日志
     file_op_logs = org_log[org_log['evt.type'].isin(APTLOG_TYPE.FILE_OP)]
     print('file logs count:', len(file_op_logs))
     process_op_logs = org_log[org_log['evt.type'].isin(APTLOG_TYPE.PROCESS_OP)]
@@ -64,7 +61,6 @@ if __name__ == "__main__":
     # execve_op_logs = org_log[org_log['evt.type'].isin(APTLOG_TYPE.EXECVE_OP)]
     # print('execve logs count:', len(execve_op_logs))
 
-    # 来源图构建
     if 'benign' in file_path:
         if len(file_op_logs) > 0:
             file_op_logs = file_op_logs[BENLOG_ARTRIBUTE.FILE_ARTRIBUTE]
@@ -121,7 +117,7 @@ if __name__ == "__main__":
         event_file = dataset + '/process-event-anomaly.txt'
     data = open(event_file,'w')
     for node in G:
-        if G.nodes[node]['type'] == APTLOG_NODE_TYPE.PROCESS: # 进程结点
+        if G.nodes[node]['type'] == APTLOG_NODE_TYPE.PROCESS:
             if G.nodes[node]['label'] != '':
                 if is_anomaly:
                     data.write(G.nodes[node]['label'] + '$$$' + str(G.nodes[node]['is_warn']) +'\n')
@@ -132,7 +128,6 @@ if __name__ == "__main__":
                     data.write(G.nodes[node]['label'] + '\n')
                 # data.write(G.nodes[node]['label'] + '\n')
                 
-                # 直接后继、前任中非进程类型结点
                 for i in G.successors(node):
                     if G.nodes[i]['label'] != 'unknown' and G.nodes[i]['type'] != APTLOG_NODE_TYPE.PROCESS and G.nodes[i]['label'] != '':
                         data.write(G.nodes[i]['label'] + '\n')
@@ -143,5 +138,9 @@ if __name__ == "__main__":
 
     data.close()
     print(attack_process)
+
     if 'benign' in event_file:
         split_cmd_and_filename(event_file,dataset)
+
+    et = time.time()
+    print(et - st)

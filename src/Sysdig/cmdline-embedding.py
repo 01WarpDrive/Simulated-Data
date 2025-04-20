@@ -1,6 +1,3 @@
-    """命令行 FastText 词向量学习模型无监督学习
-    """
-
 from gensim.models import FastText
 from gensim.models.doc2vec import TaggedDocument
 from argparse import ArgumentParser
@@ -23,7 +20,7 @@ if __name__ == "__main__":
     input_file = dataset + '/cmdline.txt'
     pathname = []
     corpus = []
-    f = open(input_file,'r')
+    f = open(input_file, 'r', encoding="utf-8")
     while True:
         line = f.readline()
         if not line:

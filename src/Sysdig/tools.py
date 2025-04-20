@@ -7,6 +7,8 @@ from nostril import nonsense
 import string 
 import re
 import json
+
+
 def graph_init():
     # -------
     # Function definition: 'graph_init()':
@@ -19,6 +21,7 @@ def graph_init():
     G = nx.DiGraph()
     return G
 
+
 def get_md5(s):
     """
     get md5 hash value of String s
@@ -29,14 +32,6 @@ def get_md5(s):
 
 
 def read_org_log_from_json(file_path):
-    """读取 Sysmon 日志文件，加载到 DataFrame 中，删除重复数据，填充缺失值
-
-    Args:
-        file_path (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
     # Sysmon_Log = pd.read_json(file_path, orient='columns', lines = True)
     Sysmon_Log = []
     for line in open(file_path):
@@ -155,18 +150,6 @@ def graph_add_node_realapt(g: nx.Graph, logs, key, md5_to_node:dict, node_to_typ
 
 
 def graph_add_node_benign(g: nx.Graph, logs, key, md5_to_node:dict, node_to_type:dict):
-    """benign日志来源图构建
-
-    Args:
-        g (nx.Graph): _description_
-        logs (_type_): _description_
-        key (_type_): _description_
-        md5_to_node (dict): _description_
-        node_to_type (dict): _description_
-
-    Returns:
-        _type_: _description_
-    """
     node_set = set()
     edge_set = set()
     anomaly_set = set()
@@ -333,6 +316,7 @@ def sanitize_string(s):
                 else:
                     newline.append('hash')
             except Exception as e:
-                print(s)
+                pass
+                # print(s)
     split_path = [item for item in filter(lambda x:x != '',newline)]
     return split_path

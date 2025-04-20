@@ -3,8 +3,8 @@ from numpy import tile
 import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
-from scipy.sparse.construct import random
-from scipy.sparse.linalg.eigen.arpack import eigsh
+from scipy.sparse import random
+from scipy.sparse.linalg import eigsh
 import sys
 import torch
 import torch.nn as nn
@@ -33,7 +33,7 @@ import smirnov_grubbs as grubbs
 
 def extract_process_feature(file_path,tfidf, stability, w2v, c2v):
     process_map = {}
-    f = open(file_path,'r')
+    f = open(file_path,'r', encoding="utf-8")
     print('start graph')
     process_vec = defaultdict(list)
     id = 0
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     #### split the benign data into train data and valid data
     data_len = len(list(process_vec.keys()))
-    print(data_len)
+    # print(data_len)
     train_data = defaultdict(list)
     train_data2 = defaultdict(list)
     per = data_len
@@ -139,8 +139,8 @@ if __name__ == "__main__":
     train_data = process_vec
         
     print('train:',len(list(train_data.keys())))
-    out_embedd1 = 'process_embedding_train.json'
-    out1 = open(out_embedd1,'w')
+    out_embedd1 = f'{dataset}/process_embedding_train.json'
+    out1 = open(out_embedd1,'w', encoding="utf-8")
     json.dump(train_data, out1)
     out1.close()
     train_data.clear()
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     w_d = 1e-5        # weight decay
     momentum = 0.9
 
-    train_file = 'process_embedding_train.json'
+    train_file = f'{dataset}/process_embedding_train.json'
     train_set = Train_Loader(train_file)
 
     train_ = torch.utils.data.DataLoader(
@@ -209,6 +209,17 @@ if __name__ == "__main__":
 
     model = torch.load(dataset + '/AE.model')
 
+    # draw training loss
+    train_loss = metrics['train_loss']
+    epochs = list(range(1, len(train_loss) + 1))
+    plt.plot(epochs, train_loss, marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Over Epochs')
+    plt.grid(True)
+    plt.savefig(dataset + '/train_loss.png')
+
+    model = torch.load(dataset + '/AE.model')
 
 
     # id2process = json.load(open('../real-time/pretrained-model/' + dataset+'/id2process.json'))
@@ -217,7 +228,7 @@ if __name__ == "__main__":
 
 ##### get the threshold #####
     
-    valid_data = json.load(open('process_embedding_train.json'))
+    valid_data = json.load(open(f'{dataset}/process_embedding_train.json'))
 
     label = []
     process_name = []
@@ -253,14 +264,14 @@ if __name__ == "__main__":
     print(np.percentile(np.array(loss_dist),80))
     print(np.percentile(np.array(loss_dist),90))
 
-    print(anomaly_mean,anomaly_std)
+    # print(anomaly_mean,anomaly_std)
     print('anomaly threshold: ',anomaly_cutoff)
 
     test_data = defaultdict(list)
     anomaly_data_file = dataset + '/process-event-anomaly.txt'
     anom_vec, process_map, attack_process = extract_process_feature(anomaly_data_file,tfidf_dic,stability,w2v,c2v)
-    for i in attack_process:
-        print(i,attack_process[i])
+    # for i in attack_process:
+    #     print(i,attack_process[i])
     # print(anom_vec[285])
     loss_dist = []
     label = []
@@ -284,12 +295,12 @@ if __name__ == "__main__":
 ############# 
     # attack_process = [] #need to fill the id according to the ground truth
 #############
-    print('all the process: ', len(label))
+    # print('all the process: ', len(label))
     anom_score = []
     for i,v in enumerate(loss_dist):
         if label[i] in attack_process:
             anom_score.append(v)
-            print(label[i],v)
+            # print(label[i],v)
     plt.figure(figsize=(12,8))
     X = loss_dist
     sns.set(font_scale = 2)
@@ -319,7 +330,7 @@ if __name__ == "__main__":
             anom_list += [label[i]]
     cnt = 0
     detected_ano = set()
-    print(len(anom_list))
+    # print(len(anom_list))
 
     for i in anom_list:
         if i in attack_process:
@@ -332,4 +343,4 @@ if __name__ == "__main__":
     print('precision: ', precision)
     print('ground truth:', len(attack_process))
     print('detected process:', len(anom_list))
-    print(set(attack_process) - detected_ano)
+    # print(set(attack_process) - detected_ano)

@@ -1,9 +1,3 @@
-"""在线检测
-
-Returns:
-    _type_: _description_
-"""
-
 from argparse import ArgumentParser
 import networkx as nx
 from streamz import Stream
@@ -21,8 +15,15 @@ from threading import Thread
 import sys
 sys.path.append('..')
 from config import *
-import os
 
+
+from loguru import logger
+from datetime import datetime
+
+# TODO
+logger.remove()
+logger.add(sys.stdout, level='INFO', format='{message}')
+logger.add('../hw17/main.log', level='INFO', format='{message}')
 
 def get_keys(d, value):
     return [k for k,v in d.items() if v == value]
@@ -51,14 +52,12 @@ def get_orgs(line):
 
 
 def log_parser(q,dataset,anomaly_cutoff):
-####### 内存缓存构建，终端识别，hopset构造，综合检测 ########
     proGraph = ProvGraph(dataset)
     start_time = time.time()
     point_start = start_time
     thread_list = []
     # cnt = 0
     while True:
-        # 构建来源图
         log_line = q.recv()
         # cnt += 1
         if log_line == "end":
@@ -78,12 +77,9 @@ def log_parser(q,dataset,anomaly_cutoff):
             elif org_log['evt.type'] in APTLOG_TYPE.NET_OP and org_log['proc.cmdline'] is not None and org_log['fd.name'] is not None:
                 proGraph.graph_add_node_mgr(org_log, APTLOG_KEY.NET, org_log['evt.type'])
         end_time = time.time()
-
-        # 超过时间窗口，更新内存缓存
         if end_time - start_time >= 10:
             proGraph.thread_lock.acquire()
             print("start_update")
-            # 更新，异常结点识别
             t = threading.Thread(target = proGraph.update,args=(anomaly_cutoff,))
             t.start()
             thread_list.append(t)
@@ -100,22 +96,26 @@ def log_parser(q,dataset,anomaly_cutoff):
 ####### you can rewrite this part ##########
 ####### 1. check if the anomaly grpah is highly ranked ########
 
-    # proGraph.attack_process 是ground-truth
+    # print(cnt)
     cnt = 0
     for i in proGraph.node_set:
         if i in proGraph.attack_process and proGraph.nodes[i]['score']!=0:
             cnt += 1
-        #     print(i,proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
-        # elif i in proGraph.attack_process and proGraph.nodes[i]['score']==0:
-        #     print(i, proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
+            print(i,proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
+        elif i in proGraph.attack_process and proGraph.nodes[i]['score']==0:
+            print(i, proGraph.GetNodeName(i) , proGraph.nodes[i]['score'])
+
     # for i in proGraph.attack_process:
     #     print('attack: ',i,proGraph.nodes[i]['score'])
-    print('graph-level rate: ', cnt/len(proGraph.attack_process))
+    print('rate: ', cnt/len(proGraph.attack_process))
 
 
     cnt = 0
+    attack_graph_node_num = 0
     for i, g in enumerate(proGraph.graph_cache):
-        g.graph = proGraph.final_graph_taylor(g.graph) # 疑似构造hopset
+
+        g.graph = proGraph.final_graph_taylor(g.graph)
+
         for k in g.graph.nodes():
             # if (g.graph.in_degree(k) == 1 and g.graph.degree(k) == 1 ):
             #     removelist.append(k)
@@ -138,7 +138,6 @@ def log_parser(q,dataset,anomaly_cutoff):
                 i = proGraph.taylor_map[i]
             proGraph.taylor_map[origion] = i
 
-        # 攻击子图
         flag = False
         tmp_hit = set()
         for node in g.graph.nodes():
@@ -164,11 +163,13 @@ def log_parser(q,dataset,anomaly_cutoff):
         # g.graph.remove_nodes_from(removelist)
 
         if flag:
-            print(g.GetGraphScore(),'attack',tmp_hit,len(g.graph.nodes()))
+            # print(g.GetGraphScore(),'attack',tmp_hit,len(g.graph.nodes()))
+            logger.info(f'graph score: {g.GetGraphScore()}, attack, nodes num: {len(g.graph.nodes())}')
             proGraph.hit |= tmp_hit
+            attack_graph_node_num += len(g.graph.nodes())
         if not flag:
             # sort(key = lambda x: x.graph['score'],reverse = True)
-            print(g.GetGraphScore(),'benign',len(g.graph.nodes()))
+            logger.info(f'graph score: {g.GetGraphScore()}, benign, nodes num: {len(g.graph.nodes())}')
         
         result_graph = ''
         max_len = 0
@@ -180,29 +181,48 @@ def log_parser(q,dataset,anomaly_cutoff):
         for k in result_graph.nodes():
             result_graph.nodes[k]['label'] = result_graph.nodes[k]['label'].replace(':','')
         
-        directory_path = '../' + dataset + '/dot'
+        directory_path = '../' + dataset + '/dot/'
         if not os.path.exists(directory_path):
             os.makedirs(directory_path)
-        nx.drawing.nx_pydot.write_dot(result_graph, '../' + dataset + '/dot/' + str(cnt) + '.dot')
+        nx.drawing.nx_pydot.write_dot(result_graph, directory_path + str(cnt) + '.dot')
         cnt += 1
-    print("graph-level recall: ", len(proGraph.hit)/len(proGraph.attack_process))
-
-    # print("未召回: ", set(proGraph.attack_process) - proGraph.hit)
-    # x = set(proGraph.attack_process) - proGraph.hit
+    logger.info(f"recall: {len(proGraph.hit)/len(proGraph.attack_process)}")
+    # print(set(proGraph.attack_process) - proGraph.hit)
+    x = set(proGraph.attack_process) - proGraph.hit
     # for i in x:
     #     print(proGraph.GetNodeName(i))
-
-    print(len(proGraph.node_set), len(proGraph.filtered))
+    # print(len(proGraph.node_set), len(proGraph.filtered))
     out_process = open('../' + dataset + '/detected-process.txt','w')
 
+    cnt = 0
+    filtered_FP_nodes = set()
     for i in proGraph.filtered:
         if i in proGraph.attack_process:
+            cnt += 1
             out_process.write(i + ',1,' + proGraph.GetNodeName(i) + '\n')
         else:
+            filtered_FP_nodes.add(i)
             out_process.write(i + ',0,' + proGraph.GetNodeName(i) + '\n')
+
+    # logger.info(f'recall1: {cnt/len(proGraph.attack_process)}')
+    # logger.info(f"precision: {cnt / len(proGraph.filtered)}")
+    # logger.info(f"precision1: {len(proGraph.hit)/len(proGraph.filtered)}")
+
+    TP_nodes = proGraph.hit # TP为攻击图中与攻击相关节点
+    FP_nodes = filtered_FP_nodes # FP为检测出的但攻击无关的节点
+    FN_nodes = proGraph.attack_process - proGraph.hit # FN为攻击相关但不在攻击图中的节点
+    TN_nodes = proGraph.node_set - proGraph.attack_process - filtered_FP_nodes # TN为攻击无关且未检测出的节点
+
+    logger.info(f"precision: {len(TP_nodes) / (len(TP_nodes) + len(FP_nodes))}")
+
+    logger.info(f'TP: {len(TP_nodes)}')
+    logger.info(f'FP: {len(FP_nodes)}')
+    logger.info(f'FN: {len(FN_nodes)}')
+    logger.info(f'TN: {len(TN_nodes)}')
+    
     out_process.close()
-
-
+        
+    
 def proc_send(q,event_file):
     for line in open(event_file):
         q.send(line)
@@ -218,12 +238,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dataset = args.d
     anomaly_cutoff = args.t
+
+    logger.info(f'----------{datetime.now()}----------')
+    logger.info(f'args: --d {dataset} --t {args.t}')
+
     stream_file = "../" + dataset + "/anomaly.json"
 
+
     pipe = multiprocessing.Pipe()
-    # 发送异常日志
     t1 = multiprocessing.Process(target=proc_send, args=(pipe[0], stream_file,))
-    # 日志在线检测
     t2 = multiprocessing.Process(target=log_parser, args=(pipe[1], dataset, anomaly_cutoff,))
     start_time = time.time()
     
@@ -235,6 +258,6 @@ if __name__ == "__main__":
     t2.join()
     
     
-    end_time = time.time()
-    print("总耗时: ", end_time-start_time)
+    # end_time = time.time()
+    # logger.info(f'time: {end_time-start_time} s')
 

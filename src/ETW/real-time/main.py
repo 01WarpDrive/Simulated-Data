@@ -17,6 +17,10 @@ sys.path.append('..')
 from config import *
 
 
+from loguru import logger
+from datetime import datetime
+
+
 def get_keys(d, value):
     return [k for k,v in d.items() if v == value]
 
@@ -44,6 +48,10 @@ def get_orgs(line):
 
 
 def log_parser(q,dataset,anomaly_cutoff):
+    logger.remove()
+    logger.add(sys.stdout, level='INFO', format='{message}')
+    logger.add(f'../{dataset}/main.log', level='INFO', format='{message}')
+
     proGraph = ProvGraph(dataset)
     start_time = time.time()
     point_start = start_time
@@ -155,11 +163,12 @@ def log_parser(q,dataset,anomaly_cutoff):
         g.graph.remove_nodes_from(removelist)
 
         if flag:
-            print(g.GetGraphScore(),'attack',tmp_hit,len(g.graph.nodes()))
+            # print(g.GetGraphScore(),'attack',tmp_hit,len(g.graph.nodes()))
+            logger.info(f'graph score: {g.GetGraphScore()}, attack, nodes num: {len(g.graph.nodes())}')
             proGraph.hit |= tmp_hit
         if not flag:
             # sort(key = lambda x: x.graph['score'],reverse = True)
-            print(g.GetGraphScore(),'benign',len(g.graph.nodes()))
+            logger.info(f'graph score: {g.GetGraphScore()}, benign, nodes num: {len(g.graph.nodes())}')
         
         result_graph = ''
         max_len = 0
@@ -171,22 +180,45 @@ def log_parser(q,dataset,anomaly_cutoff):
         for k in result_graph.nodes():
             result_graph.nodes[k]['label'] = result_graph.nodes[k]['label'].replace(':','')
         
-        nx.drawing.nx_pydot.write_dot(result_graph, '../' + dataset + '/dot/' + str(cnt) + '.dot')
+        directory_path = '../' + dataset + '/dot/'
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
+        # nx.drawing.nx_pydot.write_dot(result_graph, directory_path + str(cnt) + '.dot')
+        import codecs
+        # 使用 utf-8 编码写入 .dot 文件
+        with codecs.open(directory_path + str(cnt) + '.dot', 'w', encoding='utf-8') as f:
+            nx.drawing.nx_pydot.write_dot(result_graph, f)
         cnt += 1
     
     # json.dump(proGraph.taylor_map,open('../' + dataset + '/dot/tailor-map.json','w'))
-    print("recall: ",len(proGraph.hit)/len(proGraph.attack_process))
+    logger.info(f"recall: {len(proGraph.hit)/len(proGraph.attack_process)}")
     print(len(proGraph.attack_process))
     x = set(proGraph.attack_process) - proGraph.hit
     for i in x:
         print(i, proGraph.GetNodeCmd(i))
     print(len(proGraph.node_set),len(proGraph.filtered))
-    out_process = open('../' + dataset + '/detected-process.txt','w')
+    out_process = open('../' + dataset + '/detected-process.txt','w', encoding='utf-8')
+
+    filtered_FP_nodes = set()
     for i in proGraph.filtered:
         if i in proGraph.attack_process:
             out_process.write(i + ',1,' + proGraph.GetNodeCmd(i) + '\n')
         else:
+            filtered_FP_nodes.add(i)
             out_process.write(i + ',0,' + proGraph.GetNodeCmd(i) + '\n')
+    
+    TP_nodes = proGraph.hit # TP为攻击图中与攻击相关节点
+    FP_nodes = filtered_FP_nodes # FP为检测出的但攻击无关的节点
+    FN_nodes = proGraph.attack_process - proGraph.hit # FN为攻击相关但不在攻击图中的节点
+    TN_nodes = proGraph.node_set - proGraph.attack_process - filtered_FP_nodes # TN为攻击无关且未检测出的节点
+
+    logger.info(f"precision: {len(TP_nodes) / (len(TP_nodes) + len(FP_nodes))}")
+
+    logger.info(f'TP: {len(TP_nodes)}')
+    logger.info(f'FP: {len(FP_nodes)}')
+    logger.info(f'FN: {len(FN_nodes)}')
+    logger.info(f'TN: {len(TN_nodes)}')
+    
     out_process.close()
         
     
@@ -205,6 +237,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dataset = args.d
     anomaly_cutoff = args.t
+
+    # TODO
+    logger.remove()
+    logger.add(sys.stdout, level='INFO', format='{message}')
+    logger.add(f'../{dataset}/main.log', level='INFO', format='{message}')
+    logger.info(f'----------{datetime.now()}----------')
+    logger.info(f'args: --d {dataset} --t {args.t}')
+
     stream_file = "../" + dataset + "/anomaly.json"
 
 
@@ -221,6 +261,6 @@ if __name__ == "__main__":
     t2.join()
     
     
-    end_time = time.time()
-    print(end_time-start_time)
+    # end_time = time.time()
+    # print(end_time-start_time)
 

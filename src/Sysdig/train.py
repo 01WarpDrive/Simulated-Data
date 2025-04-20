@@ -5,7 +5,6 @@ import networkx as nx
 import scipy.sparse as sp
 from scipy.sparse import random
 from scipy.sparse.linalg import eigsh
-import sys
 import torch
 import torch.nn as nn
 from model import VariationalAutoencoder
@@ -30,20 +29,14 @@ from tools import *
 from argparse import ArgumentParser
 
 
+import sys
+from loguru import logger
+from datetime import datetime
+
+
 def extract_process_feature(file_path,tfidf, w2v, c2v):
-    """_summary_
-
-    Args:
-        file_path (_type_): _description_
-        tfidf (_type_): _description_
-        w2v (_type_): _description_
-        c2v (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
     process_map = {}
-    f = open(file_path,'r')
+    f = open(file_path,'r', encoding="utf-8")
     print('start graph')
     process_vec = defaultdict(list)
     id = 0
@@ -114,6 +107,13 @@ if __name__ == "__main__":
     epochs = args.epoch
     dataset = args.d
 
+    # TODO
+    logger.remove()
+    logger.add(sys.stdout, level='INFO', format='{message}')
+    logger.add(dataset + '/train.log', level='INFO', format='{message}')
+    logger.info(f'----------{datetime.now()}----------')
+    logger.info(f'args: --epoch {epochs} --e {args.e} --d {dataset}')
+
     w2v_dic = dataset + '/filepath-embedding.model'
     w2v = FastText.load(w2v_dic)
     c2v_dic = dataset + '/cmdline-embedding.model'
@@ -141,8 +141,8 @@ if __name__ == "__main__":
     
     train_data = process_vec
     print('train:',len(list(train_data.keys())))
-    out_embedd1 = 'process_embedding_train.json'
-    out1 = open(out_embedd1,'w')
+    out_embedd1 = dataset + '/process_embedding_train.json'
+    out1 = open(out_embedd1, 'w', encoding="utf-8")
     json.dump(train_data, out1)
     out1.close()
     train_data.clear()
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     w_d = 1e-5        # weight decay
     momentum = 0.9
 
-    train_file = 'process_embedding_train.json'
+    train_file = dataset + '/process_embedding_train.json'
     train_set = Train_Loader(train_file)
 
     train_ = torch.utils.data.DataLoader(
@@ -208,9 +208,17 @@ if __name__ == "__main__":
     print('-----------------------------------------------')
     print('[System Complete: {}]'.format(timedelta(seconds=end-start)))
 
+    # draw training loss
+    train_loss = metrics['train_loss']
+    epochs = list(range(1, len(train_loss) + 1))
+    plt.plot(epochs, train_loss, marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Loss Over Epochs')
+    plt.grid(True)
+    plt.savefig(dataset + '/train_loss.png')
 
     model = torch.load(dataset + '/AE.model')
-    model.eval()
 # data1 = json.load(open(train_file))
 
     # id2process = json.load(open('../real-time/pretrained-model/' + dataset+'/id2process.json'))
@@ -219,9 +227,8 @@ if __name__ == "__main__":
 
 ##### get the threshold #####
     
-    valid_data = json.load(open('process_embedding_train.json'))
+    valid_data = json.load(open(dataset + '/process_embedding_train.json'))
 
-    label = []
     process_name = []
     loss_dist = []
 
@@ -240,20 +247,20 @@ if __name__ == "__main__":
 
     anomaly_std = np.std(np.array(loss_dist))
     anomaly_mean = np.mean(np.array(loss_dist))
-    anomaly_cutoff = np.percentile(loss_dist,80)
-    print('90: ',np.percentile(loss_dist,90))
-    print('80: ',np.percentile(loss_dist,80))
-    print('70: ',np.percentile(loss_dist,70))
-    print('60: ',np.percentile(loss_dist,60))
+    anomaly_cutoff = np.percentile(loss_dist,90)
+    logger.info(f'90: {np.percentile(loss_dist,90)}')
+    logger.info(f'80: {np.percentile(loss_dist,80)}')
+    logger.info(f'70: {np.percentile(loss_dist,70)}')
+    logger.info(f'60: {np.percentile(loss_dist,60)}')
 
-    print(anomaly_mean,anomaly_std)
-    print('anomaly threshold: ',anomaly_cutoff)
+    # print(anomaly_mean,anomaly_std)
+    logger.info(f'anomaly threshold: {anomaly_cutoff}')
 
     test_data = defaultdict(list)
     anomaly_data_file = dataset + '/process-event-anomaly.txt'
     anom_vec, process_map, attack_process = extract_process_feature(anomaly_data_file,tfidf_dic,w2v,c2v)
-    for i in attack_process:
-        print(i,attack_process[i])
+    # for i in attack_process:
+    #     print(i,attack_process[i])
     # print(anom_vec[285])
     loss_dist = []
     label = []
@@ -274,15 +281,13 @@ if __name__ == "__main__":
         except:
             continue
 
-############# 
-    # attack_process = [] #need to fill the id according to the ground truth
-#############
-    print('all the process: ', len(label))
+
+    # print('all the process: ', len(label))
     anom_score = []
     for i,v in enumerate(loss_dist):
         if label[i] in attack_process:
             anom_score.append(v)
-            print(label[i],v)
+            # print(label[i],v)
     plt.figure(figsize=(12,8))
     X = loss_dist
     sns.set(font_scale = 2)
@@ -310,7 +315,7 @@ if __name__ == "__main__":
             anom_list += [label[i]]
     cnt = 0
     detected_ano = set()
-    print(len(anom_list))
+    # print(len(anom_list))
     for i in anom_list:
         if i in attack_process:
             detected_ano.add(i)
@@ -322,13 +327,14 @@ if __name__ == "__main__":
 
     recall = cnt/len(list(set(attack_process)))
     precision = cnt/len(anom_list)
-    print('recall: ', recall)
-    print('precision: ', precision)
-    print('ground truth:', len(attack_process))
-    print('detected process:', len(anom_list))
-    print(set(attack_process) - detected_ano)
+    
+    logger.info(f'recall: {recall}')
+    logger.info(f'precision: {precision}')
+    logger.info(f'ground truth: {len(attack_process)}')
+    logger.info(f'detected process: {len(anom_list)}')
+    # print(set(attack_process) - detected_ano)
 
-    leak = set(attack_process) - detected_ano
-    for i in leak:
-        print(i, attack_process[i])
+    # leak = set(attack_process) - detected_ano
+    # for i in leak:
+    #     print(i, attack_process[i])
 
